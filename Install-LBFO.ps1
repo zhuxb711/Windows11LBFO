@@ -38,39 +38,6 @@ function Ensure-Admin {
   }
 }
 
-function Ensure-System {
-  $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-  Log "Current security context: $identity" Cyan
-  if ($identity -eq 'NT AUTHORITY\SYSTEM') { return }
-
-  Ensure-Admin
-  $psexec = Join-Path $PSScriptRoot 'PsExec.exe'
-  if (-not (Test-Path $psexec)) {
-    Fatal "PsExec.exe not found at: $psexec. Place PsExec.exe beside Install-LBFO.ps1 and run again."
-  }
-  Log "Re-launching under SYSTEM via PsExec..." Yellow
-  $args = @(
-    '-accepteula', '-s', '-i', '-h',
-    'powershell.exe', '-ExecutionPolicy', 'Bypass', '-NoProfile',
-    '-File', "`"$PSCommandPath`""
-  )
-  try {
-    $p = Start-Process -FilePath $psexec -ArgumentList $args -PassThru -Wait -RedirectStandardError "$ProgramDataDir\psexec_err.log" -RedirectStandardOutput "$ProgramDataDir\psexec_out.log" -WindowStyle Hidden -ErrorAction Stop
-    Log "PsExec exit code: $($p.ExitCode)" DarkCyan
-    if ($p.ExitCode -ne 0) {
-      $err = Get-Content -Path "$ProgramDataDir\psexec_err.log" -ErrorAction SilentlyContinue
-      $out = Get-Content -Path "$ProgramDataDir\psexec_out.log" -ErrorAction SilentlyContinue
-      Log "PsExec error output: $err" Red
-      Log "PsExec output: $out" DarkCyan
-      Fatal "PsExec failed to relaunch as SYSTEM (exit $($p.ExitCode))."
-    }
-  } catch {
-    Log "PsExec execution failed: $($_.Exception.Message)" Red
-    Fatal "PsExec execution failed."
-  }
-  exit
-}
-
 function Try-Delete([string]$path) {
   if (-not (Test-Path -LiteralPath $path)) {
     Log "Path not found, no deletion needed: $path" DarkCyan
@@ -619,7 +586,6 @@ function Stage-And-Install {
 # ---- main ----
 try {
   New-Item -ItemType Directory -Path $ProgramDataDir -Force | Out-Null
-  Ensure-System
   Stage-And-Install
 } catch {
   Fatal $_.Exception.Message

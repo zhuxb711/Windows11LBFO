@@ -18,9 +18,13 @@ This repository provides scripts to enable Load Balancing/Failover (LBFO) and NI
      ```powershell
      cd C:\Temp\Windows11LBFO
      ```
-   - Run the install script:
+   - Run the script to create a powershell in SYSTEM privilege:
      ```powershell
-     powershell -ExecutionPolicy Bypass -File .\Install-LBFO.ps1
+     .\PsExec.exe -s -i powershell.exe
+     ```
+   - Run the install script in the SYSTEM privilege powershell:
+     ```powershell
+     powershell -ExecutionPolicy Bypass -File C:\Temp\Windows11LBFO\Install-LBFO.ps1
      ```
    - The script will:
      - Clean existing LBFO configurations.
@@ -34,15 +38,13 @@ This repository provides scripts to enable Load Balancing/Failover (LBFO) and NI
    - After the automatic reboot, open an elevated PowerShell prompt.
    - Run these commands to confirm LBFO is enabled:
      ```powershell
-     type C:\ProgramData\LBFO\install.log
      sc.exe query mslbfoprovider
-     netcfg -s s | findstr /i ms_lbfo
+     netcfg -s n | findstr /i ms_lbfo
      Get-NetLbfoTeam
      Get-NetAdapter | Select-Object Name, Status, LinkSpeed
      New-NetLbfoTeam -Name "Team0" -TeamNicName "Team0" -TeamMembers "Ethernet" -TeamingMode SwitchIndependent -LoadBalancingAlgorithm Dynamic -Verbose -ErrorAction SilentlyContinue
      ```
    - Expected output:
-     - `install.log`: Shows successful cleanup, file copy, catalog registration, and driver installation.
      - `sc.exe query mslbfoprovider`: Shows `STATE: 4 RUNNING` or `1 STOPPED`.
      - `netcfg -s s`: Includes `MS_LBFO`.
      - `Get-NetLbfoTeam`: Lists `Team0` if created, or nothing if not yet created.
@@ -56,9 +58,13 @@ This repository provides scripts to enable Load Balancing/Failover (LBFO) and NI
      ```powershell
      cd C:\Temp\Windows11LBFO
      ```
-   - Run the uninstall script:
+   - Run the script to create a powershell in SYSTEM privilege:
      ```powershell
-     powershell -ExecutionPolicy Bypass -File .\Uninstall-LBFO.ps1
+     .\PsExec.exe -s -i powershell.exe
+     ```
+   - Run the uninstall script in the SYSTEM privilege powershell:
+     ```powershell
+     powershell -ExecutionPolicy Bypass -File C:\Temp\Windows11LBFO\Uninstall-LBFO.ps1
      ```
    - The script will:
      - Stop and delete the `mslbfoprovider` service.
@@ -77,6 +83,34 @@ This repository provides scripts to enable Load Balancing/Failover (LBFO) and NI
      - No `mslbfoprovider` service (`sc query mslbfoprovider` fails with error 1060).
      - No `ms_lbfo` in `netcfg -s s`.
      - No LBFO-related registry entries or files.
+
+## Example: Enable LACP for 2 adaptors
+- **Get All Adaptors Available**
+  ```powershell
+  Get-NetAdapter | Select-Object Name, Status, LinkSpeed
+  ```
+  ```
+  Name                         Status       LinkSpeed
+  ----                         ------       ---------
+  Ethernet 2                   Up           2.5 Gbps
+  Ethernet                     Up           2.5 Gbps
+  ```
+
+- **Create LBFO Team for Adaptors**
+  ```powershell
+  New-NetLbfoTeam -Name "LBFOTeam" -TeamNicName "LACP Balance Network" -TeamMembers "Ethernet","Ethernet 2" -TeamingMode LACP -LoadBalancingAlgorithm Dynamic -Verbose
+  ```
+  ```
+  Name                   : LBFOTeam
+  Members                : {Ethernet, Ethernet 2}
+  TeamNics               : LACP Balance Network
+  TeamingMode            : Lacp
+  LoadBalancingAlgorithm : Dynamic
+  LacpTimer              : Fast
+  Status                 : Down                   --> Will be UP once you also config the switch
+  ```
+
+- **New Network Adaptor "LACP Balance Network" will be present in your network settings**
 
 ## Troubleshooting
 - **Check Logs**:
@@ -114,10 +148,9 @@ This repository provides scripts to enable Load Balancing/Failover (LBFO) and NI
   pnputil /add-driver $inf /install
   netcfg -v -l $inf -c s -i ms_lbfo
   sc.exe start mslbfoprovider
-  netcfg -s s | findstr /i ms_lbfo
+  netcfg -s n | findstr /i ms_lbfo
   ```
 
 ## Notes
-- **Teaming**: After installation, create NIC teams with `New-NetLbfoTeam`. Start with one adapter (e.g., "Ethernet") to avoid binding issues, then add more with `Add-NetLbfoTeamMember`.
 - **Manual Installation**: If the script fails, use `ncpa.cpl` -> Have Disk, pointing to `C:\Windows\INF\MsLbfoProvider.inf`.
 - **Support**: For issues, check logs and open an issue on the GitHub repository with the relevant log files and outputs.

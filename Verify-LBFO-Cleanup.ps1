@@ -107,7 +107,12 @@ if ($driversMountedHere) {
 
 # ---- Report ----
 Write-Host "`n--- Findings ---" -ForegroundColor Cyan
-$results | Sort-Object Area, Item | Format-Table -AutoSize
+
+if ($results.Count -gt 0) {
+  $results | Sort-Object Area, Item | Format-Table -AutoSize
+} else {
+  Write-Host "GOOD: Everything fine" -ForegroundColor Green
+}
 
 $bad = $results | Where-Object { $_.Present -eq $true -and $_.Area -ne 'Catalogs' } # catalogs can be left intentionally
 $ok  = $results | Where-Object { $_.Present -eq $false -or $_.Area -eq 'Catalogs' }
